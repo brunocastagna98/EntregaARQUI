@@ -1,0 +1,247 @@
+.data
+    menu: .asciiz "\n1-Ingresar categorías\n2-Mostrar categorías\n3-Agregar objetos\n4-Salir\nSelecciona una opción: "
+    prompt_categoria: .asciiz "Ingresa una categoría: "
+    prompt_objeto: .asciiz "Ingresa el nombre del objeto: "
+    forward: .asciiz "\nRecorriendo categorías:\n"
+    null: .word 0   # Valor que usamos como puntero nulo
+    prompt_objetos: .asciiz "  Objetos:\n"
+
+    # Nodo de categoría: ID (4 bytes) + categoría (32 bytes) + puntero a objetos (8 bytes) + puntero siguiente (8 bytes) + puntero anterior (8 bytes)
+    nodo1: .space 56  # Aumentamos el espacio para el puntero de objetos
+    nodo2: .space 56
+    nodo3: .space 56
+
+    # Espacio para los objetos relacionados con las categorías
+    objeto1: .space 36  # ID de objeto (4 bytes) + nombre de objeto (32 bytes) + punteros (8 bytes)
+    objeto2: .space 36
+    objeto3: .space 36
+
+.text
+    .globl main
+main:
+    # Inicializar punteros y contador de IDs
+    la $t1, nodo1        # Dirección del primer nodo
+    la $t2, nodo2        # Dirección del segundo nodo
+    la $t3, nodo3        # Dirección del tercer nodo
+    li $t4, 0            # Contador de categorías ingresadas
+    li $t6, 1            # Contador de IDs de categorías (empieza en 1)
+
+    # Inicialización de punteros para objetos (vacío)
+    la $t7, objeto1      # Primer objeto
+    la $t8, objeto2      # Segundo objeto
+    la $t9, objeto3      # Tercer objeto
+    li $t5, 0            # Contador de objetos (usamos $t5 aquí)
+
+menu_loop:
+    # Mostrar menú
+    li $v0, 4            # Syscall para imprimir string
+    la $a0, menu         # Dirección del menú
+    syscall
+
+    # Leer opción del menú
+    li $v0, 5            # Syscall para leer entero
+    syscall
+    move $t0, $v0        # Guardar opción seleccionada en $t0
+
+    # Opción 1: Ingresar categorías
+    li $t5, 1            # Comparar con 1
+    beq $t0, $t5, ingresar_categorias
+
+    # Opción 2: Mostrar categorías
+    li $t5, 2            # Comparar con 2
+    beq $t0, $t5, mostrar_categorias
+
+    # Opción 3: Agregar objetos
+    li $t5, 3            # Comparar con 3
+    beq $t0, $t5, agregar_objetos
+
+    # Opción 4: Salir
+    li $t5, 4            # Comparar con 4
+    beq $t0, $t5, salir
+
+    # Si no es válida, volver al menú
+    j menu_loop
+
+ingresar_categorias:
+    # Verificar si ya se ingresaron las 3 categorías
+    li $t5, 3            # Máximo de nodos
+    bge $t4, $t5, menu_loop  # Si ya ingresamos 3, volver al menú
+
+    # Mostrar mensaje para ingresar categoría
+    li $v0, 4
+    la $a0, prompt_categoria
+    syscall
+
+    # Leer la categoría
+    li $v0, 8            # Syscall para leer cadena
+    beq $t4, 0, guardar_nodo1 # Primer nodo
+    beq $t4, 1, guardar_nodo2 # Segundo nodo
+    beq $t4, 2, guardar_nodo3 # Tercer nodo
+
+guardar_nodo1:
+    # Guardar ID único en nodo1
+    sw $t6, 0($t1)       # Guardar ID (4 bytes)
+    addi $t6, $t6, 1     # Incrementar el contador de IDs
+
+    # Leer categoría en nodo1
+    la $a0, 4($t1)       # Dirección donde guardar la categoría
+    li $a1, 32           # Tamaño máximo
+    syscall
+
+    # Configurar punteros del nodo1
+    la $t2, nodo2        # Puntero al siguiente nodo (nodo2)
+    sw $t2, 40($t1)      # Puntero siguiente de nodo1 apunta a nodo2
+    li $t5, 0            # Puntero anterior (NULL porque es el primer nodo)
+    sw $t5, 36($t1)      # Puntero anterior de nodo1 es NULL
+    li $t5, 0            # Puntero a objetos vacío
+    sw $t5, 32($t1)      # Puntero a objetos vacío en nodo1
+    addi $t4, $t4, 1     # Incrementar contador de categorías
+    j menu_loop
+
+
+
+guardar_nodo2:
+    # Guardar ID único en nodo2
+    sw $t6, 0($t2)       # Guardar ID (4 bytes)
+    addi $t6, $t6, 1     # Incrementar el contador de IDs
+
+    # Leer categoría en nodo2
+    la $a0, 4($t2)
+    li $a1, 32
+    syscall
+
+    # Configurar punteros del nodo2
+    la $t3, nodo3         # Puntero al siguiente nodo (nodo3)
+    sw $t3, 40($t2)       # Puntero siguiente de nodo2 apunta a nodo3
+    la $t1, nodo1         # Puntero al nodo anterior (nodo1)
+    sw $t1, 36($t2)       # Puntero anterior de nodo2 apunta a nodo1
+    li $t5, 0             # Puntero a objetos vacío
+    sw $t5, 32($t2)       # Puntero a objetos vacío en nodo2
+    addi $t4, $t4, 1      # Incrementar contador de categorías
+    j menu_loop
+
+
+guardar_nodo3:
+    # Guardar ID único en nodo3
+    sw $t6, 0($t3)       # Guardar ID (4 bytes)
+    addi $t6, $t6, 1     # Incrementar el contador de IDs
+
+    # Leer categoría en nodo3
+    la $a0, 4($t3)       # Dirección donde guardar la categoría
+    li $a1, 32           # Tamaño máximo
+    syscall
+
+    # Configurar punteros del nodo3
+    li $t2, 0            # Puntero siguiente (NULL porque es el último nodo)
+    sw $t2, 40($t3)      # Puntero siguiente de nodo3 es NULL
+    la $t1, nodo2        # Puntero al nodo anterior (nodo2)
+    sw $t1, 36($t3)      # Puntero anterior de nodo3 apunta a nodo2
+    li $t5, 0            # Puntero a objetos vacío
+    sw $t5, 32($t3)      # Puntero a objetos vacío en nodo3
+    addi $t4, $t4, 1     # Incrementar contador de categorías
+    j menu_loop
+
+mostrar_categorias:
+    li $v0, 4            # Syscall para imprimir string
+    la $a0, forward      # Mensaje de recorrido
+    syscall
+
+    # Mostrar categorías desde el nodo1
+    la $t0, nodo1         # Empezar en el primer nodo de categorías
+    
+recorrer_adelante:
+    beq $t0, $zero, menu_loop  # Si el puntero actual es NULL, termina el recorrido
+
+    # Mostrar ID
+    lw $a0, 0($t0)       # Cargar el ID del nodo
+    li $v0, 1            # Syscall para imprimir entero
+    syscall
+
+    # Mostrar la categoría
+    la $a0, 4($t0)       # Dirección de la cadena (nombre de la categoría)
+    li $v0, 4            # Syscall para imprimir cadena
+    syscall
+    
+    # Mostrar objetos de esta categoría
+    lw $t2, 32($t0)      # Cargar puntero a objetos de la categoría
+    beq $t2, $zero, siguiente_categoria  # Si no hay objetos, ir al siguiente nodo
+
+    # Recorrer y mostrar objetos
+    li $v0, 4            # Syscall para imprimir string
+    la $a0, prompt_objetos  # Imprimir "  Objetos:"
+    syscall
+    
+    j recorrer_objetos  # Llamar a la función para recorrer objetos
+
+    recorrer_objetos:
+    beq $t2, $zero, siguiente_categoria  # Si el puntero a objetos es NULL, pasar a la siguiente categoría
+
+    # Mostrar nombre del objeto
+    la $a0, 4($t2)       # Cargar nombre del objeto
+    li $v0, 4            # Syscall para imprimir cadena
+    syscall
+
+    lw $t2, 0($t2)       # Avanzar al siguiente objeto (si existe)
+    j recorrer_objetos   # Continuar recorriendo objetos
+
+
+    siguiente_categoria:
+    # Avanzar al siguiente nodo de categoría
+    lw $t0, 40($t0)      # Cargar puntero al siguiente nodo
+    j recorrer_adelante  # Volver a recorrer las categorías
+
+
+
+agregar_objetos:
+     # Leer el ID de la categoría
+    li $v0, 4
+    la $a0, prompt_categoria
+    syscall
+
+    li $v0, 5            # Syscall para leer entero
+    syscall
+    move $t0, $v0        # Guardar el ID de la categoría
+
+    # Buscar la categoría correspondiente
+    la $t1, nodo1
+
+buscar_categoria:
+    beq $t1, $zero, menu_loop  # Si llegamos al final de la lista, volver al menú
+    lw $t2, 0($t1)       # Cargar el ID de la categoría
+    beq $t2, $t0, agregar_objeto_a_categoria
+
+    # Avanzar al siguiente nodo
+    lw $t1, 40($t1)
+    j buscar_categoria
+
+agregar_objeto_a_categoria:
+    # Leer el nombre del objeto
+    li $v0, 4
+    la $a0, prompt_objeto
+    syscall
+
+    li $v0, 8            # Syscall para leer cadena
+    la $a0, 4($t7)       # Guardar en el primer objeto
+    li $a1, 32           # Tamaño máximo
+    syscall
+
+    # Relacionar el objeto con la categoría (enlazando el objeto)
+    lw $t2, 32($t1)      # Cargar puntero a objetos de la categoría
+    beq $t2, $zero, iniciar_lista_objetos  # Si no hay objetos, iniciar la lista
+
+    # Si ya hay objetos, enlazar el objeto al principio de la lista
+    sw $t7, 0($t2)       # Enlazar objeto al inicio de la lista
+    sw $t7, 32($t1)      # Actualizar puntero de objetos de la categoría al último agregado
+    j menu_loop
+
+iniciar_lista_objetos:
+    # Si la lista de objetos está vacía, el primer objeto será el nuevo
+    sw $t7, 32($t1)      # Establecer el puntero de objetos de la categoría al nuevo objeto
+    sw $zero, 4($t7)     # El puntero siguiente del nuevo objeto debe ser NULL (fin de lista)
+
+    j menu_loop
+
+salir:
+    li $v0, 10           # Syscall para salir
+    syscall
+
